@@ -420,7 +420,7 @@ input.flt-select[readonly]{cursor:pointer}
 const GEOJSON_URL  = 'dados_seguranca_puplica_pa.geojson';
 /* Nome do arquivo-base mais recente (atualize aqui sempre que trocar o Excel na pasta raiz).
    A data final do nome (após "_A_") é usada como a "última atualização" dos dados. */
-const BASE_EXCEL_FILE = '00_BASE ANUAL_01_01_2026_A_22_07_2026.xlsx';
+const BASE_EXCEL_FILE = 'BASE_ANUAL_01_01_2026_A_23_08_2026.xlsx';
 const DATASET_START_YEAR = 2025, DATASET_START_MONTH_IDX = 0; // início fixo do histórico: Janeiro/2025
 const MONTHS       = ['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 const MONTHS_SHORT = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
@@ -1464,11 +1464,38 @@ function getUltimaAtualizacao(){
   const m=BASE_EXCEL_FILE.match(/_A_(\d{2})_(\d{2})_(\d{4})\.xlsx$/i);
   return m?{day:parseInt(m[1],10),monthIdx:parseInt(m[2],10)-1,year:parseInt(m[3],10)}:null;
 }
+/* Sempre calcula o (ano,mês) mais recente presente no GeoJSON — assim o rótulo de
+   "última atualização" acompanha os dados automaticamente, mesmo que BASE_EXCEL_FILE
+   fique desatualizado. */
+function getLatestDataMes(features){
+  let maxAno=-Infinity,maxMesIdx=-1;
+  (features||allFeatures).forEach(ft=>{
+    const p=ft.properties||{};
+    const a=parseInt(p.Ano)||0;
+    if(!a) return;
+    const mIdx=MONTHS.indexOf(canonicalMonth(p.mes_fato));
+    if(mIdx<0) return;
+    if(a>maxAno||(a===maxAno&&mIdx>maxMesIdx)){maxAno=a;maxMesIdx=mIdx;}
+  });
+  return maxAno===-Infinity?null:{year:maxAno,monthIdx:maxMesIdx};
+}
+/* Data de referência "atual" para o app: o mês mais recente do GeoJSON, com o dia exato
+   de BASE_EXCEL_FILE quando ele bate com esse mês (senão usa o último dia do mês). */
+function getUltimaAtualizacaoEfetiva(){
+  const latest=getLatestDataMes();
+  if(!latest) return null;
+  const ua=getUltimaAtualizacao();
+  const day=(ua&&ua.year===latest.year&&ua.monthIdx===latest.monthIdx)
+    ?ua.day
+    :new Date(latest.year,latest.monthIdx+1,0).getDate();
+  return {year:latest.year,monthIdx:latest.monthIdx,day};
+}
 function updateDataPeriodo(){
   const el=byId('data-periodo');
   if(!el) return;
+  const latest=getLatestDataMes();
+  if(!latest){ el.classList.remove('show'); return; }
   const ua=getUltimaAtualizacao();
-  if(!ua){ el.classList.remove('show'); return; }
 
   const mesesSel=(activeFilters.mes&&activeFilters.mes.length)
     ? MONTHS.filter(m=>activeFilters.mes.includes(m))
@@ -1476,12 +1503,16 @@ function updateDataPeriodo(){
   const anoSel=activeFilters.ano;
   const filtroAtivo=Boolean(mesesSel||anoSel);
 
-  /* Sem filtro: início fixo (Jan/2025) até a última atualização (data do arquivo-base).
-     Com filtro: recalcula o recorte real a partir do GeoJSON, mas ainda compara
-     contra a última atualização pra saber se deve usar o dia exato dela. */
+  /* Sem filtro: início fixo (Jan/2025) até o mês mais recente encontrado no GeoJSON.
+     Com filtro: recalcula o recorte real a partir do GeoJSON. Em ambos os casos, o dia
+     exato de BASE_EXCEL_FILE só é usado quando seu (ano,mês) bate com o mês mais recente
+     dos dados — caso contrário usamos o último dia do mês como aproximação. */
   let startYear=DATASET_START_YEAR, startMonthIdx=DATASET_START_MONTH_IDX;
-  let endYear=ua.year, endMonthIdx=ua.monthIdx, endDay=ua.day;
+  let endYear=latest.year, endMonthIdx=latest.monthIdx;
   let isUltimaAtualizacao=true;
+  let endDay=(ua&&ua.year===endYear&&ua.monthIdx===endMonthIdx)
+    ?ua.day
+    :new Date(endYear,endMonthIdx+1,0).getDate();
 
   if(filtroAtivo){
     let minAno=Infinity,minMesIdx=0,maxAno=-Infinity,maxMesIdx=0,found=false;
@@ -1500,8 +1531,10 @@ function updateDataPeriodo(){
     if(!found){ el.classList.remove('show'); return; }
     startYear=minAno;startMonthIdx=minMesIdx;
     endYear=maxAno;endMonthIdx=maxMesIdx;
-    isUltimaAtualizacao=endYear===ua.year&&endMonthIdx===ua.monthIdx;
-    endDay=isUltimaAtualizacao?ua.day:new Date(endYear,endMonthIdx+1,0).getDate();
+    isUltimaAtualizacao=endYear===latest.year&&endMonthIdx===latest.monthIdx;
+    endDay=isUltimaAtualizacao
+      ?((ua&&ua.year===endYear&&ua.monthIdx===endMonthIdx)?ua.day:new Date(endYear,endMonthIdx+1,0).getDate())
+      :new Date(endYear,endMonthIdx+1,0).getDate();
   }
 
   const suffix=isUltimaAtualizacao?' (última atualização)':'';
@@ -1535,7 +1568,7 @@ function buildPizzaTipos(){
   const card=byId('pizza-card');
   if(!card||!allFeatures.length) return;
 
-  const ua=getUltimaAtualizacao();
+  const ua=getUltimaAtualizacaoEfetiva();
   const refDate=ua?new Date(ua.year,ua.monthIdx,ua.day):null;
 
   const categorias=[
