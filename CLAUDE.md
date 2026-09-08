@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A 100% client-side (no backend/build step) dashboard for public-security data across municipalities of Pará, Brazil. It loads a municipal GeoJSON, aggregates crime data in-browser, and renders it as an interactive Leaflet choropleth map with Chart.js charts, rankings, monthly history, regional comparisons, and a neighborhood-pressure analysis. There is also a Gemini-powered natural-language query assistant ("IA" tab).
 
-The entire application logic (HTML + CSS + JS) lives in a single file: `index.html` (~4700 lines). There is no bundler, package.json, or build process — it's static files served as-is.
+The entire application logic (HTML + CSS + JS) lives in a single file: `index.html` (~2300 lines). There is no bundler, package.json, or build process — it's static files served as-is.
 
 ## Running locally
 
@@ -26,7 +26,7 @@ Then visit `http://localhost:8080`. There is no test suite, linter, or build com
 - `index.html` — the entire app: styles, markup, and all JS logic (map, charts, filters, AI assistant).
 - `login.html` — standalone Firebase email/password login page. Redirects to `index.html` on success.
 - `firebase-config.js` — Firebase project config, loaded by both `index.html` and `login.html`.
-- `dados_seguranca_puplica_pa.geojson` — the data source. Each `Feature` represents one municipality **in one month** (not one row per municipality). See `README.md` for the expected properties shape.
+- `dados_seguranca_puplica_pa.geojson` — the data source. Each `Feature` represents one municipality **in one month** (not one row per municipality), with `properties` including `municipio`, `regional`, `populacao`, `mes` plus raw counts (`cvli`, `furto`, `roubo`) and pre-computed densities (`densidade_cvli`, `densidade_furto`, `densidade_roubo`). See `README.md` for the full expected shape.
 - `stats_municipios_seguranca_pa.csv` — supplementary municipal stats.
 
 ### Auth flow
