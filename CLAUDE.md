@@ -20,13 +20,23 @@ npx serve .
 
 Then visit `http://localhost:8080`. There is no test suite, linter, or build command in this repo.
 
+## Dataset update routine
+
+Most commits are `Update dataset to DD/MM/YYYY` and touch exactly three things together:
+1. Replace `dados_seguranca_puplica_pa.geojson` with the new export.
+2. Rename the `BASE_ANUAL_01_01_2026_A_<old>.txt` file to the new cutoff date (delete old, add new).
+3. Update `BASE_EXCEL_FILE` in `index.html` to the new filename — the date after `_A_` is parsed and shown as the "última atualização" in the UI. Forgetting this step leaves the UI showing the old date.
+
+`DATASET_START_YEAR` / `DATASET_START_MONTH_IDX` (next to `BASE_EXCEL_FILE`) pin the start of the history at January/2025.
+
 ## Architecture
 
 ### Files
 - `index.html` — the entire app: styles, markup, and all JS logic (map, charts, filters, AI assistant).
 - `login.html` — standalone Firebase email/password login page. Redirects to `index.html` on success.
 - `firebase-config.js` — Firebase project config, loaded by both `index.html` and `login.html`.
-- `dados_seguranca_puplica_pa.geojson` — the data source. Each `Feature` represents one municipality **in one month** (not one row per municipality), with `properties` including `municipio`, `regional`, `populacao`, `mes` plus raw counts (`cvli`, `furto`, `roubo`) and pre-computed densities (`densidade_cvli`, `densidade_furto`, `densidade_roubo`). See `README.md` for the full expected shape.
+- `dados_seguranca_puplica_pa.geojson` — the data source (~85 MB; don't read it whole — sample with `head -c`). Each `Feature` represents one municipality **in one month** (not one row per municipality). The real property keys are IBGE-style and uppercase: `CD_MUN`, `CIDADE`/`NM_MUN_y`, `regionais`, `Faixa`, `Ano`, `mes_fato` (month name in caps without accents, e.g. `"ABRIL"`, `"MARCO"`), `CVLI`, `FURTO`, `ROUBO`, `Polulação` (typo is in the source data — keep it), and `Densidade CVLI (100milhab)` etc. CRS is EPSG:4674. **The schema example in `README.md` (`municipio`, `mes: "2024-01"`, …) is outdated — trust `FIELD_MAP` and the actual file.**
+- `BASE_ANUAL_01_01_2026_A_DD_MM_YYYY.txt` — a placeholder file whose **name** carries the dataset's cutoff date; its content is irrelevant.
 - `stats_municipios_seguranca_pa.csv` — supplementary municipal stats.
 
 ### Auth flow
